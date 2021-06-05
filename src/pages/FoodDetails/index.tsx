@@ -74,37 +74,93 @@ const FoodDetails: React.FC = () => {
   useEffect(() => {
     async function loadFood(): Promise<void> {
       // Load a specific food with extras based on routeParams id
+      const response = await api.get<Food>(`/foods/${routeParams.id}`);
+      const foodData = response.data;
+
+      Object.assign(foodData, { formattedPrice: formatValue(foodData.price) });
+
+      setFood(foodData);
+      setExtras(foodData.extras);
     }
 
     loadFood();
   }, [routeParams]);
 
-  function handleIncrementExtra(id: number): void {
-    // Increment extra quantity
-  }
+  const handleIncrementExtra = useCallback(
+    (id: number) => {
+      // Increment extra quantity
+      const extra = extras.find(e => e.id === id);
+
+      if (extra) {
+        if (isNaN(extra.quantity)) {
+          extra.quantity = 0;
+        }
+
+        extra.quantity += 1;
+        const newExtras = [...extras];
+        setExtras(newExtras);
+      }
+    },
+    [extras],
+  );
 
   function handleDecrementExtra(id: number): void {
     // Decrement extra quantity
+    const extra = extras.find(e => e.id === id);
+
+    if (extra && extra.quantity > 0) {
+      extra.quantity -= 1;
+
+      const newExtras = [...extras];
+      setExtras(newExtras);
+    }
   }
 
   function handleIncrementFood(): void {
     // Increment food quantity
+    const newQuantity = foodQuantity + 1;
+    setFoodQuantity(newQuantity);
   }
 
   function handleDecrementFood(): void {
     // Decrement food quantity
+    if (foodQuantity > 1) {
+      const newQuantity = foodQuantity - 1;
+      setFoodQuantity(newQuantity);
+    }
   }
 
   const toggleFavorite = useCallback(() => {
     // Toggle if food is favorite or not
-  }, [isFavorite, food]);
+    setIsFavorite(state => !state);
+  }, []);
 
   const cartTotal = useMemo(() => {
     // Calculate cartTotal
-  }, [extras, food, foodQuantity]);
+
+    let valorExtras = 0;
+    if (extras?.length > 0) {
+      valorExtras = extras.reduce((acumulador, extra) => {
+        console.log(acumulador, extra);
+        return (
+          acumulador +
+          (isNaN(extra.value) ? 0 : extra.value) *
+            (isNaN(extra.quantity) ? 0 : extra.quantity)
+        );
+      }, 0);
+    }
+
+    if (isNaN(valorExtras)) {
+      valorExtras = 0;
+    }
+
+    console.log(food.price, foodQuantity, valorExtras);
+    return formatValue(food.price * foodQuantity + valorExtras);
+  }, [extras, food.price, foodQuantity]);
 
   async function handleFinishOrder(): Promise<void> {
     // Finish the order and save on the API
+    navigation.navigate('Orders');
   }
 
   // Calculate the correct icon name

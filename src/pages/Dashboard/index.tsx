@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Image, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, ScrollView } from 'react-native';
 
 import Icon from 'react-native-vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
@@ -35,6 +35,7 @@ interface Food {
   price: number;
   thumbnail_url: string;
   formattedPrice: string;
+  category: number;
 }
 
 interface Category {
@@ -45,6 +46,7 @@ interface Category {
 
 const Dashboard: React.FC = () => {
   const [foods, setFoods] = useState<Food[]>([]);
+  const [fullFoodList, setFullFoodList] = useState<Food[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<
     number | undefined
@@ -53,28 +55,73 @@ const Dashboard: React.FC = () => {
 
   const navigation = useNavigation();
 
+  const handleError = useCallback((error: Error) => {
+    Alert.alert(
+      'Erro ao carregar os dados',
+      'Ocorreu um erro ao carregar os dados, tente mais tarde.',
+    );
+  }, []);
+
   async function handleNavigate(id: number): Promise<void> {
     // Navigate do ProductDetails page
+    navigation.navigate('FoodDetails', { id });
   }
 
   useEffect(() => {
     async function loadFoods(): Promise<void> {
       // Load Foods from API
+      try {
+        if (!fullFoodList || fullFoodList.length === 0) {
+          const response = await api.get<Food[]>('/foods');
+          const foodsLit = response.data.map(food => {
+            Object.assign(food, { formattedPrice: formatValue(food.price) });
+            return food;
+          });
+
+          setFullFoodList(foodsLit);
+        }
+
+        let foodsResult: Food[] = [...fullFoodList];
+
+        if (selectedCategory) {
+          foodsResult = foodsResult.filter(
+            food => food.category === selectedCategory,
+          );
+        }
+
+        if (searchValue && searchValue.trim().length > 0) {
+          foodsResult = foodsResult.filter(
+            food =>
+              food.name.toLowerCase().indexOf(searchValue.toLowerCase()) > -1,
+          );
+        }
+
+        setFoods(foodsResult);
+      } catch (error) {
+        handleError(error);
+      }
     }
 
     loadFoods();
-  }, [selectedCategory, searchValue]);
+  }, [selectedCategory, searchValue, handleError, fullFoodList]);
 
   useEffect(() => {
     async function loadCategories(): Promise<void> {
       // Load categories from API
+      try {
+        const response = await api.get('/categories');
+        setCategories(response.data);
+      } catch (error) {
+        handleError(error);
+      }
     }
 
     loadCategories();
-  }, []);
+  }, [handleError]);
 
   function handleSelectCategory(id: number): void {
     // Select / deselect category
+    setSelectedCategory(state => (state === id ? undefined : id));
   }
 
   return (
